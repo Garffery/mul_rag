@@ -2,6 +2,7 @@ import asyncio
 
 from langchain.agents import create_agent
 from langchain_community.tools import TavilySearchResults
+from langchain_core.tools import tool
 from langchain_deepseek import ChatDeepSeek
 
 from agent.output_model import PlanExecute, Response
@@ -9,9 +10,12 @@ from agent.planner_agent import planner
 from agent.replanner_agent import replanner
 from langgraph.graph import END
 from langgraph.graph import StateGraph, START
+from tools.generate_tools import generate_md
+
+
 
 # Choose the LLM that will drive the agent
-tools = [TavilySearchResults(max_results=3)]
+tools = [TavilySearchResults(max_results=3), generate_md]
 llm = ChatDeepSeek(model="deepseek-chat")
 prompt = "You are a helpful assistant."
 agent_executor = create_agent(llm, tools, system_prompt=prompt)
@@ -36,7 +40,7 @@ async def execute_step(state: PlanExecute):
 
 async def plan_step(state: PlanExecute):
     plan = await planner.ainvoke({"messages": [("user", state["input"])]})
-    return {"plan": plan.steps}
+    return {"plan": plan.steps,"aaaa":"测试"}
 
 
 async def replan_step(state: PlanExecute):
@@ -87,7 +91,8 @@ app = workflow.compile()
 
 async def main():
     config = {"recursion_limit": 50}
-    inputs = {"input": "查找特斯拉和英伟达的股价并比较"}
+    # inputs = {"input": "分析恒生科技近一个星期的表现并生成文件"}
+    inputs = {"input": "写一个小笑话并生成对应的md文件"}
     async for event in app.astream(inputs, config=config):
         for k, v in event.items():
             if k != "__end__":
