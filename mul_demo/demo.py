@@ -1,10 +1,11 @@
+import asyncio
 import getpass
 import os
 from langchain_community.tools.tavily_search import TavilySearchResults
-# from langchain import hub
-from langchain_openai import ChatOpenAI
-
-from langgraph.prebuilt import create_react_agent
+# from langchain_openai import ChatOpenAI
+from langchain_deepseek import ChatDeepSeek
+from langchain.agents import create_agent
+# from langgraph.prebuilt import create_react_agent
 import operator
 from typing import Annotated, List, Tuple
 from typing_extensions import TypedDict
@@ -20,15 +21,15 @@ def _set_env(var: str):
         os.environ[var] = getpass.getpass(f"{var}: ")
 
 
-_set_env("OPENAI_API_KEY")
+_set_env("DEEPSEEK_API_KEY")
 _set_env("TAVILY_API_KEY")
 
 tools = [TavilySearchResults(max_results=3)]
 
 # Choose the LLM that will drive the agent
-llm = ChatOpenAI(model="gpt-4-turbo-preview")
+llm = ChatDeepSeek(model="deepseek-chat")
 prompt = "You are a helpful assistant."
-agent_executor = create_react_agent(llm, tools, prompt=prompt)
+agent_executor = create_agent(llm, tools, system_prompt=prompt)
 
 class PlanExecute(TypedDict):
     input: str
@@ -54,8 +55,8 @@ The result of the final step should be the final answer. Make sure that each ste
         ("placeholder", "{messages}"),
     ]
 )
-planner = planner_prompt | ChatOpenAI(
-    model="gpt-4o", temperature=0
+planner = planner_prompt | ChatDeepSeek(
+    model="deepseek-chat", temperature=0
 ).with_structured_output(Plan)
 
 
@@ -92,8 +93,8 @@ Update your plan accordingly. If no more steps are needed and you can return to 
 )
 
 
-replanner = replanner_prompt | ChatOpenAI(
-    model="gpt-4o", temperature=0
+replanner = replanner_prompt | ChatDeepSeek(
+    model="deepseek-chat", temperature=0
 ).with_structured_output(Act)
 
 
@@ -161,3 +162,15 @@ workflow.add_conditional_edges(
 # This compiles it into a LangChain Runnable,
 # meaning you can use it as you would any other runnable
 app = workflow.compile()
+
+
+
+async def main():
+    config = {"recursion_limit": 50}
+    inputs = {"input": "what is the hometown of the mens 2024 Australia open winner?"}
+    async for event in app.astream(inputs, config=config):
+        for k, v in event.items():
+            if k != "__end__":
+                print(v)
+
+asyncio.run(main())
